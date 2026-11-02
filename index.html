@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pixel Quest – Rừng Ánh Trăng</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101827;color:#e8f0ff;font-family:system-ui,Arial;display:grid;place-items:center;min-height:100vh}
+.wrap{width:min(100vw,1100px);padding:16px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:clamp(20px,3vw,30px);margin:0;color:#f8d879}.hud{display:flex;gap:10px;flex-wrap:wrap}
+.pill{background:#1e2d43;border:1px solid #405574;border-radius:9px;padding:7px 12px}
+.stage{position:relative;margin-top:12px;border:3px solid #607b91;border-radius:12px;overflow:hidden;box-shadow:0 18px 50px #0008}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;background:#193b37}
+.help{color:#b8c7d9;font-size:14px;line-height:1.5;margin-top:10px}
+button{background:#f0c75e;color:#20202a;border:0;border-radius:8px;padding:9px 14px;font-weight:800;cursor:pointer}
+#overlay{position:absolute;inset:0;background:#091321cc;display:grid;place-items:center;text-align:center;padding:20px}
+#overlay.hidden{display:none}.panel{max-width:460px;background:#1c2b40;border:1px solid #7188a4;border-radius:14px;padding:24px}
+</style>
+</head>
+<body><main class="wrap">
+<div class="top"><h1>🌙 PIXEL QUEST: RỪNG ÁNH TRĂNG</h1><div class="hud"><span class="pill">❤️ Máu: <b id="hp">5</b></span><span class="pill">⭐ Pha lê: <b id="score">0</b>/12</span><span class="pill">⌛ <b id="time">0</b>s</span><button id="restart">Chơi lại</button></div></div>
+<div class="stage"><canvas id="game" width="960" height="540"></canvas><div id="overlay"><div class="panel"><h2>Cuộc phiêu lưu bắt đầu!</h2><p>Thu thập 12 pha lê ánh trăng, né những sinh vật canh rừng và tìm cổng dịch chuyển.</p><p><b>WASD / phím mũi tên</b> để di chuyển · <b>Space</b> để lướt nhanh</p><button id="start">Bắt đầu</button></div></div></div>
+<div class="help">Mẹo: quái vật tuần tra theo vùng. Chạm vào chúng sẽ mất máu. Thu thập đủ 12 pha lê để mở cổng ở góc đông bắc. Game chạy hoàn toàn offline, không cần cài đặt.</div>
+</main>
+<script>
+const c=document.querySelector('#game'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+const hpEl=document.querySelector('#hp'),scoreEl=document.querySelector('#score'),timeEl=document.querySelector('#time'),overlay=document.querySelector('#overlay');
+let keys={},player,crystals,enemies,score,hp,started,won,lost,seconds,last,invuln,dash;
+function reset(){player={x:75,y:460,r:13,speed:2.5};crystals=[];enemies=[];score=0;hp=5;seconds=0;invuln=0;dash=0;won=lost=false;
+for(let i=0;i<12;i++){let x=140+(i%4)*205+(Math.random()*50-25),y=85+Math.floor(i/4)*155+(Math.random()*50-25);crystals.push({x,y,got:false,phase:Math.random()*6})}
+for(let i=0;i<7;i++)enemies.push({x:170+i*105,y:120+(i%3)*130,home:170+i*105,phase:i*1.7,r:15});
+started=false;overlay.classList.remove('hidden');overlay.querySelector('h2').textContent='Cuộc phiêu lưu bắt đầu!';overlay.querySelector('p').textContent='Thu thập 12 pha lê ánh trăng, né những sinh vật canh rừng và tìm cổng dịch chuyển.';overlay.querySelector('button').textContent='Bắt đầu';overlay.querySelector('button').onclick=start;updateHud()}
+function updateHud(){hpEl.textContent=hp;scoreEl.textContent=score;timeEl.textContent=Math.floor(seconds)}
+function start(){started=true;overlay.classList.add('hidden');last=performance.now();requestAnimationFrame(loop)}
+document.querySelector('#start').onclick=start;document.querySelector('#restart').onclick=reset;
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.code==='Space'&&started)dash=18;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function rect(x,y,w,h,col){ctx.fillStyle=col;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+function drawWorld(t){
+ ctx.fillStyle='#193b37';ctx.fillRect(0,0,W,H);
+ for(let y=0;y<H;y+=32)for(let x=0;x<W;x+=32){let n=Math.sin(x*12.1+y*7.7)*.5+.5;rect(x,y,30,30,n>.5?'#20483d':'#1d4039')}
+ ctx.fillStyle='#66563f';ctx.fillRect(0,250,W,42);ctx.fillRect(455,0,42,H);
+ for(let i=0;i<36;i++){let x=(i*83)%W,y=(i*137)%H;rect(x,y,4,4,'#9b8257')}
+ for(let i=0;i<34;i++){let x=(i*173+30)%W,y=(i*97+20)%H;if((x<55||x>900||y<45||y>490)||(i%3===0)){rect(x-11,y+8,23,17,'#162b2b');rect(x-15,y-10,30,26,'#28634d');rect(x-9,y-17,18,15,'#34785a');rect(x-3,y+3,6,17,'#785238')}}
+ ctx.beginPath();ctx.arc(875,70,25,0,Math.PI*2);ctx.fillStyle=score===12?'#9e6dff':'#34435b';ctx.fill();ctx.strokeStyle=score===12?'#e5c8ff':'#63748a';ctx.lineWidth=4;ctx.stroke();
+ ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.fillText('CỔNG',855,108);
+}
+function drawPlayer(){let p=player;rect(p.x-9,p.y-9,18,20,'#27344b');rect(p.x-8,p.y-15,16,13,'#f0c69b');rect(p.x-9,p.y-18,18,7,'#d8e5f2');rect(p.x-6,p.y-10,3,3,'#26344a');rect(p.x+3,p.y-10,3,3,'#26344a');rect(p.x-8,p.y+10,6,5,'#e5b84e');rect(p.x+2,p.y+10,6,5,'#e5b84e');if(invuln>0){ctx.strokeStyle='#fff';ctx.beginPath();ctx.arc(p.x,p.y,21,0,7);ctx.stroke()}}
+function drawCrystal(o,t){if(o.got)return;let y=o.y+Math.sin(t/300+o.phase)*5;ctx.save();ctx.translate(o.x,y);ctx.rotate(Math.PI/4);rect(-7,-7,14,14,'#75e9ff');rect(-4,-4,8,8,'#d8ffff');ctx.restore();ctx.fillStyle='#b4f8ff';ctx.fillRect(o.x-1,y-15,2,5)}
+function drawEnemy(e,t){let y=e.y+Math.sin(t/260+e.phase)*9;rect(e.x-12,y-10,24,21,'#6e3d70');rect(e.x-9,y-15,18,9,'#9b5d9a');rect(e.x-7,y-4,4,4,'#ffef9a');rect(e.x+3,y-4,4,4,'#ffef9a');rect(e.x-7,y+9,5,5,'#3a2a4b');rect(e.x+3,y+9,5,5,'#3a2a4b')}
+function loop(now){if(!started)return;let dt=Math.min(32,now-last);last=now;seconds+=dt/1000;if(invuln>0)invuln-=dt;if(dash>0)dash--;
+let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0),len=Math.hypot(dx,dy)||1,spd=player.speed+(dash>0?3.2:0);player.x=Math.max(18,Math.min(W-18,player.x+dx/len*spd*dt/16));player.y=Math.max(25,Math.min(H-18,player.y+dy/len*spd*dt/16));
+enemies.forEach(e=>{e.x=e.home+Math.sin(now/800+e.phase)*48;if(Math.hypot(player.x-e.x,player.y-e.y)<25&&invuln<=0){hp--;invuln=1100;if(hp<=0)finish(false)}});
+crystals.forEach(o=>{if(!o.got&&Math.hypot(player.x-o.x,player.y-o.y)<23){o.got=true;score++}});
+if(score===12&&Math.hypot(player.x-875,player.y-70)<38)finish(true);
+drawWorld(now);crystals.forEach(o=>drawCrystal(o,now));enemies.forEach(e=>drawEnemy(e,now));drawPlayer();updateHud();if(started)requestAnimationFrame(loop)}
+function finish(win){started=false;won=win;overlay.classList.remove('hidden');overlay.querySelector('h2').textContent=win?'✨ Bạn đã giải cứu khu rừng!':'💫 Bạn đã hết máu!';overlay.querySelector('p').textContent=win?`Hoàn thành trong ${Math.floor(seconds)} giây. Ánh trăng đã trở lại!`:`Bạn thu thập được ${score}/12 pha lê. Thử lại nhé!`;overlay.querySelector('button').textContent='Chơi lại';overlay.querySelector('button').onclick=()=>{reset();start()}}
+reset();drawWorld(0);crystals.forEach(o=>drawCrystal(o,0));enemies.forEach(e=>drawEnemy(e,0));drawPlayer();
+</script></body></html>
